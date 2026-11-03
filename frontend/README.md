@@ -1,37 +1,35 @@
-# DApp 前端起始框架
+# MiniDEX 前端
 
-使用 React、TypeScript 和 Vite，保留基础示例页面，供后续实现 DApp 功能。
+React 19 + Vite 8 + ethers v6，通过 MetaMask（`window.ethereum`）与本地 Hardhat 节点交互。
 
-## 安装与运行
+## 运行
 
-建议使用 Node.js 24。使用 nvm 时，在 `frontend/` 目录执行：
-
-```bash
-nvm install
-nvm use
-```
-
-也可以自行安装满足 `package.json` 中 `engines` 要求的 Node.js 版本。
-
-首次安装依赖并启动：
+先按仓库根目录 README 启动本地链并部署合约（部署脚本会把合约地址写入 `src/utils/deployments.json`，ABI 写入 `src/utils/abis/`），然后：
 
 ```bash
-npm ci
-npm start
+npm install
+npm run start     # http://localhost:3000
 ```
 
-访问终端显示的地址（默认 [http://localhost:3000](http://localhost:3000)，端口占用时自动选择其他端口），修改 `src/App.tsx` 即可开始开发。`npm run dev` 与 `npm start` 等效。
+MetaMask 需要添加网络：RPC `http://127.0.0.1:8545`，Chain ID `31337`，并导入 `npm run node` 打印的测试账户私钥。
 
-## 检查与构建
+`npm run build` 会先跑 `tsc --noEmit` 再打包。
 
-```bash
-npm run typecheck
-npm test
-npm run build
-```
+## 页面
 
-`npm test` 使用 Vitest 执行一次测试；`npm run test:watch` 持续监听修改。测试配置在 `vite.config.ts`，测试示例在 `src/App.test.tsx`。
+| 页面 | 说明 |
+| --- | --- |
+| 钱包 | 连接 MetaMask、查看 ETH/ZJU/DXD 余额、领取测试代币与测试 ETH |
+| 交易池 | 切换交易所、查看所有池子的储备/价格、创建新池子（支持 ETH 池） |
+| 流动性 | 添加流动性（自动 approve）、查看自己的 NFT、销毁 NFT 取回资产、查看某个池子的全部流动性来源 |
+| 兑换 | 输入数量实时报价、显示现价/成交价/价格影响、带 1% 滑点保护的兑换 |
+| 套利 | 对比两个交易所的价格差，预览两个方向的套利利润，一键执行原子套利并展示前后价格与利润 |
 
-生产文件输出到 `build/`。执行 `npm run preview`，在 [http://localhost:4173](http://localhost:4173) 本地预览生产构建。
+## 代码结构
 
-HTML 入口位于 `frontend/index.html`；图片、图标等静态资源放在 `public/`，代码和样式放在 `src/`。
+- `src/utils/web3.ts`：合约实例、读链函数、钱包连接与网络切换、格式化工具
+- `src/pages/*.tsx`：五个页面
+- `src/types.ts`：页面共享的 `AppCtx`（账户、签名器、提示消息、刷新计数）
+- 未连接钱包时页面用只读 provider 直接读链，方便查看数据；写操作需要连接钱包。
+
+URL 上可以带 `?tab=wallet|pools|liquidity|swap|arbitrage` 直达某个页面。

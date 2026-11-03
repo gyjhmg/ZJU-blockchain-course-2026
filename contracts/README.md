@@ -1,46 +1,49 @@
 # MiniDEX 合约工程
 
-使用 Hardhat 3、ethers 6 和 TypeScript。`contracts/MiniDEX.sol` 目前仅是 Demo，DEX 功能尚待实现。
+Hardhat 3 + ethers v6 + TypeScript，Solidity 0.8.20，OpenZeppelin 5.4.0。
 
-## 安装与检查
+## 合约
 
-建议使用 Node.js 24。在 `contracts/` 目录执行：
+| 文件 | 说明 |
+| --- | --- |
+| `contracts/MiniDEX.sol` | AMM 交易所：创建池子、添加/撤销流动性（ERC721 凭证）、兑换；0.3% 手续费留在储备中给 LP |
+| `contracts/MockERC20.sol` | 测试代币，`faucet()` 每地址每 1 小时领 1000 枚，`mint()` 供模拟脚本批量发币 |
+| `contracts/ETHFaucet.sol` | 测试以太币水龙头，每地址每 24 小时领 1 ETH |
+| `contracts/Arbitrage.sol` | 跨交易所原子套利，无利润则整笔 revert |
 
-```bash
-nvm install
-nvm use
-npm ci
-npm run compile
-npm run typecheck
-npm test
-```
-
-`npm run build` 与 `npm run compile` 等效。类型检查会先编译合约并生成类型。当前 Solidity 编译器为 0.8.20，OpenZeppelin 使用兼容该编译器的稳定版 5.4.0。
-
-## 在本地 Hardhat 节点上部署
-
-先启动节点，并保持该终端开启：
+## 常用命令
 
 ```bash
-npm run node
+npm install
+npm run compile      # hardhat build
+npm run typecheck    # 编译 + tsc --noEmit
+npm test             # 14 个单元测试（内存链，不需要启动节点）
+npm run node         # 启动本地节点 127.0.0.1:8545，chainId 31337，20 个账户
+npm run deploy       # 部署全部合约（需要节点在跑），地址写入 frontend/src/utils/
+npm run seed         # 创建演示池子与初始流动性
+npm run simulate     # 20 个模拟用户随机交易 + 套利
 ```
 
-在另一个终端进入 `contracts/`，使用相同的 Node.js 版本后执行：
+部署脚本使用节点自带的已解锁账户（`accounts: "remote"`），所以本地节点需要保持运行。
 
-```bash
-npm run deploy
-```
+如果本地节点跑在别的端口，用环境变量覆盖：`LOCAL_RPC_URL=http://127.0.0.1:7545 npm run deploy`。
 
-默认 RPC 地址为 `http://127.0.0.1:8545`，Chain ID 为 `31337`。部署脚本输出 MiniDEX 合约地址；ABI 位于 `artifacts/contracts/MiniDEX.sol/MiniDEX.json`。
+## 接口速查
 
-## 在 Ganache 上部署
+`MiniDEX`：
 
-启动 Ganache，在 `hardhat.config.ts` 中调整 `ganache.url` 以匹配其 RPC 地址，然后执行：
+- `createPool(address tokenA, address tokenB) returns (uint256 poolId)`
+- `addLiquidity(uint256 poolId, uint256 amountA, uint256 amountB) payable returns (uint256 nftId, uint256 liquidity, uint256 usedA, uint256 usedB)`
+- `removeLiquidity(uint256 nftId) returns (uint256 amountA, uint256 amountB)`
+- `swap(uint256 poolId, address tokenIn, uint256 amountIn, uint256 minAmountOut) payable returns (uint256 amountOut)`
+- `getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) pure returns (uint256)`
+- `quoteSwap(uint256 poolId, address tokenIn, uint256 amountIn) view returns (uint256)`
+- `getPools() / getReserves(poolId) / getPrice(poolId) / getPoolId(tokenA, tokenB) / getPoolNftIds(poolId)`
+- `positions(nftId) returns (poolId, amount, timestamp)`，NFT 本身是 ERC721Enumerable
 
-```bash
-npm run deploy:ganache
-```
+`Arbitrage`：
 
-也可以通过环境变量 `LOCAL_RPC_URL` 或 `GANACHE_RPC_URL` 覆盖对应的 RPC 地址。部署使用节点提供的已解锁测试账户。
+- `arbitrage(dexBuy, poolIdBuy, dexSell, poolIdSell, tokenIn, amountIn, minProfit) returns (uint256 profit)`
+- `checkOpportunity(dexBuy, poolIdBuy, dexSell, poolIdSell, tokenIn, amountIn) view returns (amountMid, amountBack, profitable, buyPrice, sellPrice)`
 
-使用临时内存链测试部署脚本时，可执行 `npx hardhat run scripts/deploy.ts --network hardhat`。
+原生 ETH 在池子里用 `address(0)` 表示。
